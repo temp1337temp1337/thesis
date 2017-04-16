@@ -1,32 +1,16 @@
 //
-// Created by edaravig on 12/12/2016.
+// Created by edaravig on 16/4/2017.
 //
-#include <iostream>
-#include <cmath>
-#include <iomanip>
-#include <random>
-#include <gmp.h>
-#include <fplll.h>
 
-using namespace std;
-using namespace fplll;
-
-#define z1 1;
-#define z2 2;
-///
-vector<Integer>* generate_problem(int n, double density);
-vector<int>* random_vector(int n);
-Integer dot_product(vector<Integer> *A, vector<int> *B);
-IntMatrix* create_matrix(vector<Integer> *a, Integer inner, int n, int N);
-///stream used to save the statistic results of execution
-ostringstream initial_logs;
+#include "initMatrix.h"
 
 /**
  * generate_problem
  * @return
  */
-vector<Integer>* generate_problem(int n, double density) {
-    const int d = density;                                                  ///reform density to its integer value
+vector<Integer>* initMatrix::generate_problem(int n, double density) {
+
+    const int d = density;                                                  ///typecast density to its integer value
     vector<Integer> *a = new vector<Integer>;                               ///represents the vector a of the problem
     random_device rd;                                                       ///random device used for initializing uniform distribution
     unsigned int random_num;                                                ///random number for seed
@@ -57,44 +41,14 @@ vector<Integer>* generate_problem(int n, double density) {
 
 
 /**
- * initialize: initializing the values for the execution
- * @return B: the matrix (IntMatrix) used for the problem
- */
-IntMatrix* initialize(int n, double d) {
-
-    vector<Integer> *a = generate_problem(n, d);///generating the coefficients
-
-    ///print density of the problem
-    Integer max_v; max_v=0;
-    vector<Integer>::iterator itM;
-    for(itM=a->begin(); itM<a->end(); ++itM) {
-        max_v = (*itM > max_v) ? *itM : max_v;
-    }
-    double logged = log2(max_v.get_d());
-    double density = n/logged;
-    initial_logs<<"Density is: "<<density<<endl;
-
-    vector<int> *solution = random_vector(n);///generating a subset sum solution
-    Integer inner = dot_product(a, solution); ///getting the inner product
-    int N = ceil(sqrt(n)) * 2 - 2;  ///computation of N
-    IntMatrix* B = create_matrix(a, inner, n, N); ///creating the basic matrix
-
-    ///deleting the unnecessary object
-    delete a;
-    delete solution;
-
-    ///returning the generated matrix
-    return B;
-}
-
-
-/**
  * create_matrix: creates a matrix (IntMatrix) according to the paper (to elaborate)
  * @param a: vector containing random coefficients
  * @return B: the matrix (IntMatrix) used for the problem
  */
-IntMatrix* create_matrix(vector<Integer> *a, Integer inner, int n, int N) {
+IntMatrix* initMatrix::create_matrix(vector<Integer> *a, Integer inner, int n, int N) {
 
+    Integer z1; z1 = 1;
+    Integer z2; z2 = 2;
     Integer zN; zN = N;
     Integer zN2; zN2 = n/2;
 
@@ -120,7 +74,8 @@ IntMatrix* create_matrix(vector<Integer> *a, Integer inner, int n, int N) {
  * random_vector: generates a solution of subset sum problem
  * @return randV: a permuted vector with H '1' and N-H '0'
  */
-vector<int>* random_vector(int n) {
+vector<int>* initMatrix::random_vector(int n) {
+
     int ham = n/2; ///hamming weight of the problem
     vector<int> *random_v = new vector<int>; ///represents the vector a
 
@@ -142,7 +97,8 @@ vector<int>* random_vector(int n) {
  * @param A: the first vector containing the a coefficients
  * @param B: the second vector containing the solution
  */
-Integer dot_product(vector<Integer> *A, vector<int> *B) {
+Integer initMatrix::dot_product(vector<Integer> *A, vector<int> *B) {
+
     Integer a; Integer b;
     Integer mul; mul=0;
     Integer sum; sum=0;
@@ -164,13 +120,46 @@ Integer dot_product(vector<Integer> *A, vector<int> *B) {
     return sum;
 }
 
+/**
+ * initialize: initializing the values for the execution
+ * @return B: the matrix (IntMatrix) used for the problem
+ */
+void initMatrix::initialize(int n, double d) {
 
-string retrieve_init_logs() {
-    return initial_logs.str();
+    vector<Integer> *a = generate_problem(n, d);///generating the coefficients
+
+    ///print density of the problem
+    Integer max_v; max_v=0;
+    vector<Integer>::iterator itM;
+    for(itM=a->begin(); itM<a->end(); ++itM) {
+        max_v = (*itM > max_v) ? *itM : max_v;
+    }
+    double logged = log2(max_v.get_d());
+    double density = n/logged;
+
+    cerr<<"Density is: "<<density<<endl;
+
+    this->solution = random_vector(n);///generating a subset sum solution
+    Integer inner = dot_product(a, solution); ///getting the inner product
+    int N = ceil(sqrt(n)) * 2 - 2;  ///computation of N
+    this->B = create_matrix(a, inner, n, N); ///creating the basic matrix
+
 }
 
 
-void clear_init_logs() {
-    initial_logs.str("");
-    initial_logs.clear();
+/**
+ *
+ * @return
+ */
+IntMatrix *initMatrix::get_matrix() {
+    return B;
+}
+
+
+/**
+ *
+ * @return
+ */
+vector<int> *initMatrix::get_solution() {
+    return solution;
 }

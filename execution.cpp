@@ -1,6 +1,7 @@
 //
 // Created by edaravig on 12/12/2016.
 //
+
 #include <iostream>
 #include <fstream>
 #include <cmath>
@@ -11,128 +12,17 @@
 #include <gmp.h>
 #include <fplll.h>
 #include "StopWatch.h"
+#include "Parameters.h"
+#include "initMatrix.h"
 
 using namespace std;
 using namespace fplll;
-///
-IntMatrix* update(IntMatrix* B);
-bool check_solution(IntMatrix *B);
-///
-StopWatch timer;
-///stream used to save the statistic results of execution
-ostringstream execution_logs;
-///
+
 struct comparator {
     bool operator()(const Integer a, const Integer b) const {
         return a < b;
     }
 };
-
-/**
- * first
- * @param B
- * @return
- */
-int first(IntMatrix *B) {
-    timer.reset();  ///reset the timer
-    int block_size; ///represents the number of blocksize
-    bool solution;  ///represents the possible solution found
-
-    for(int k=1; k<6; ++k) {
-        B = update(B); ///update the matrix with permutation and sorting
-        block_size = (int)pow(2.0, k); ///setting the blocksize
-        bkz_reduction(*B, block_size); ///execute bkz reduction
-        solution = check_solution(B); ///checking for a solution
-
-        if(solution) {
-            long timeCounted = timer.elapsed<chrono::seconds>().count();
-            int minutes = timeCounted/60;
-            double seconds = timeCounted - (minutes * 60.0);
-            execution_logs<<"Solution found for round: "<<k<<" : "<<block_size<<endl;
-            execution_logs<<"Time: "<<minutes<<" m and "<<seconds<<" s"<<endl;
-            return block_size;
-        }
-    }
-    return -1;
-}
-
-
-/**
- *
- * @param C
- * @param start
- * @param end
- * @param step
- * @return
- */
-int second_extreme(IntMatrix *C, int start, int end, int step) {
-    timer.reset(); ///reset the timer
-    bool solution; ///represents the possible solution found
-    IntMatrix *D = new IntMatrix(C->get_rows(), C->get_cols());
-
-    for(int k = start; k < end; k += step) {
-        *D = *C; ///reset the matrix
-        vector<Strategy> strategies;
-        ///the directory path of the below instruction should be set to the one containing the "default.json" file
-        strategies = load_strategies_json("/home/edaravig/fplll-v5/share/fplll/strategies/default.json");
-        BKZParam params(k, strategies);
-        bkz_reduction(D, NULL, params); ///bkz reduction
-        solution = check_solution(D); ///checking for a solution
-
-        if(solution) {
-            long time_counted = timer.elapsed<chrono::seconds>().count();
-            int minutes = time_counted/60;
-            double seconds = time_counted - (minutes * 60.0);
-            execution_logs<<"Solution found with extreme pruning"<<" for round: "<<k-24<<" : "<<k<<endl;
-            execution_logs<<"Time: "<<minutes<<" m and "<<seconds<<" s"<<endl;
-            return k;
-        }
-    }
-    return -1;
-}
-
-
-/**
- *
- * @param C
- * @param start
- * @param end
- * @param step
- * @return
- */
-int second_linear(IntMatrix *C, int start, int end, int step) {
-    timer.reset(); ///reset the timer
-    bool solution; ///represents the possible solution found
-    IntMatrix *D = new IntMatrix(C->get_rows(), C->get_cols());
-    int s; ///represents the pruning gradient
-    int start_pruning = 10;
-
-    for(int k=start; k<end; k+=step) {
-        *D = *C;///reset the matrix for linear pruning
-        s = (k % 3) + start_pruning;
-
-        vector<Strategy> strategies;
-        for (int b = 0; b < k; b++) {
-            strategies.emplace_back(move(Strategy::EmptyStrategy(b)));
-        }
-        Strategy strategy;
-        strategy.pruning_parameters.emplace_back(Pruning::LinearPruning(k, s)); ///linear pruning
-        strategies.emplace_back(move(strategy));
-        BKZParam params(k, strategies);
-        bkz_reduction(D, NULL, params); ///bkz reduction
-        solution = check_solution(D); ///checking for a solution
-
-        if (solution) {
-            long time_counted = timer.elapsed<chrono::seconds>().count();
-            int minutes = time_counted/60;
-            double seconds = time_counted - (minutes * 60.0);
-            execution_logs<<"Solution found with linear pruning"<<" for round: "<<k-24<<" : "<<k<<endl;
-            execution_logs<<"Time: "<<minutes<<" m and "<<seconds<<" s"<<endl;
-            return k;
-        }
-    }
-    return -1;
-}
 
 
 /**
@@ -141,6 +31,7 @@ int second_linear(IntMatrix *C, int start, int end, int step) {
  * @return -1 if no solution found otherwise returns the solution
  */
 bool check_solution(IntMatrix *B) {
+
     const int n = B->get_rows()-1;  ///retrieve dimension of problem
     Integer z;                      ///used in order to examine each number of the matrix
     Integer z1; z1 = 1;             ///constant variable for Integer equal to 1
@@ -175,6 +66,7 @@ bool check_solution(IntMatrix *B) {
  * @return
  */
 IntMatrix *update(IntMatrix* B) {
+
     int n = B->get_rows()-1;    ///retrieve dimension of problem
     Integer z0; z0 = 0;         ///constant variable for Integer equal to 0
     vector<int> permuted;       ///contains the rows to be permuted
@@ -228,18 +120,160 @@ IntMatrix *update(IntMatrix* B) {
 
 
 /**
- *
+ * first
+ * @param B
  * @return
  */
-string retrieve_execution_logs () {
-    return execution_logs.str();
+int first(IntMatrix *B, StopWatch timer) {
+
+    timer.reset(); ///count the time
+    int block_size; ///represents the number of blocksize
+    bool solution;  ///represents the possible solution found
+
+    for(int k=1; k<6; ++k) {
+        B = update(B); ///update the matrix with permutation and sorting
+        block_size = (int)pow(2.0, k); ///setting the blocksize
+        bkz_reduction(*B, block_size); ///execute bkz reduction
+        solution = check_solution(B); ///checking for a solution
+
+        if(solution) {
+            long time_counted_seconds = timer.elapsed<chrono::seconds>().count();
+            long time_counted_minutes = timer.elapsed<chrono::minutes>().count();
+            time_counted_seconds -= time_counted_minutes * 60;
+            cerr<<"Solution found for round: "<<k<<" : "<<block_size<<endl;
+            cerr<<"Time: "<<time_counted_minutes<<" m and "<<time_counted_seconds<<" s"<<endl;
+            return block_size;
+        }
+    }
+    return -1;
 }
 
 
 /**
  *
+ * @param C
+ * @param start
+ * @param end
+ * @param step
+ * @return
  */
-void clear_execution_logs() {
-    execution_logs.str("");
-    execution_logs.clear();
+int second_extreme(IntMatrix *C, int start, int end, int step, vector<Strategy> strategies, StopWatch timer) {
+
+    timer.reset(); ///reset the timer
+    bool solution; ///represents the possible solution found
+    IntMatrix *D = new IntMatrix(C->get_rows(), C->get_cols());
+
+    for(int k = start; k < end; k += step) {
+        *D = *C; ///reset the matrix
+        BKZParam params(k, strategies);
+        bkz_reduction(D, NULL, params); ///bkz reduction
+        solution = check_solution(D); ///checking for a solution
+
+        if(solution) {
+            long time_counted_seconds = timer.elapsed<chrono::seconds>().count();
+            long time_counted_minutes = timer.elapsed<chrono::minutes>().count();
+            time_counted_seconds -= time_counted_minutes * 60;
+            cerr<<"Solution found with extreme pruning"<<" for round: "<<k-24<<" : "<<k<<endl;
+            cerr<<"Time: "<<time_counted_minutes<<" m and "<<time_counted_seconds<<" s"<<endl;
+            return k;
+        }
+    }
+    return -1;
+}
+
+
+/**
+ *
+ * @param C
+ * @param start
+ * @param end
+ * @param step
+ * @return
+ */
+int second_linear(IntMatrix *C, int start, int end, int step, StopWatch timer) {
+
+    timer.reset(); ///reset the timer
+    bool solution; ///represents the possible solution found
+    IntMatrix *D = new IntMatrix(C->get_rows(), C->get_cols());
+    int s; ///represents the pruning gradient
+    int start_pruning = 10;
+
+    for(int k=start; k<end; k+=step) {
+        *D = *C;///reset the matrix for linear pruning
+        s = (k % 3) + start_pruning;
+
+        ///TODO: below should be probably only once instasiated
+        vector<Strategy> strategies;
+        for (int b = 0; b < k; b++) {
+            strategies.emplace_back(move(Strategy::EmptyStrategy(b)));
+        }
+        Strategy strategy;
+        strategy.pruning_parameters.emplace_back(Pruning::LinearPruning(k, s)); ///linear pruning
+        strategies.emplace_back(move(strategy));
+        BKZParam params(k, strategies);
+        bkz_reduction(D, NULL, params); ///bkz reduction
+        solution = check_solution(D); ///checking for a solution
+
+        if (solution) {
+            long time_counted_seconds = timer.elapsed<chrono::seconds>().count();
+            long time_counted_minutes = timer.elapsed<chrono::minutes>().count();
+            time_counted_seconds -= time_counted_minutes * 60;
+            cerr<<"Solution found with linear pruning"<<" for round: "<<k-24<<" : "<<k<<endl;
+            cerr<<"Time: "<<time_counted_minutes<<" m and "<<time_counted_seconds<<" s"<<endl;
+            return k;
+        }
+    }
+    return -1;
+}
+
+
+/**
+ *
+ * @param p
+ */
+void experiment(Parameters p) {
+
+    const int n = p.get_dimension();                                ///dimension of the problem
+    const double density = p.get_density();                         ///density of the problem
+    bool first_b = p.get_first();                                   ///first stage
+    bool s_linear = p.get_second_linear();                          ///second linear
+    bool s_extreme = p.get_second_extreme();                        ///second extreme
+    const char* strategies_filename = p.get_strategies_filename();  ///strategies filename
+    const int start = p.get_second_start();                         ///starting round for block size of the second round
+    const int end = p.get_second_end();                             ///ending round for block size of the second round
+    int step = p.get_second_step();                                 ///step for the iteration of the second round
+    int number_of_instances = p.get_number_of_instances();          ///number of instances to be executed of the experiment
+
+    for(int noi=1; noi<=number_of_instances; ++noi) {
+
+        initMatrix im;
+        im.initialize(n, density);
+
+        cerr<<"Start of problem with number: "<<noi<<" ###############################################################"<<endl<<endl;
+        cerr<<"Generated Matrix is shown below"<<endl<<endl;
+        cerr<<*im.get_matrix()<<endl<<endl;
+        cerr<<"Solution to be found is shown below"<<endl<<endl;
+        cerr<<*im.get_solution()<<endl<<endl;
+
+        StopWatch timer;
+
+        int success;
+        if(first_b) {
+            success = first(im.get_matrix(), timer);
+        }
+
+        if (success == -1) {
+
+            if(s_linear) {
+                success = second_linear(im.get_matrix(), start, end, step, timer);
+            }
+            if(s_extreme) {
+                vector<Strategy> strategies;
+                strategies = load_strategies_json(strategies_filename);
+                success = second_extreme(im.get_matrix(), start, end, step, strategies, timer);
+            }
+        }
+        cerr<<"End of problem with number: "<<noi<<"#########"<<endl;
+        cerr<<"#######################################################################################################"<<endl<<endl;
+    }
 }
